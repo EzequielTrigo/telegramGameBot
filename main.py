@@ -85,7 +85,6 @@ async def menu(update, context):
 
 def create_keyboard(tablero):
     keyboard = []
-    #print("creando teclado con tablero: " + str(tablero))
     for i in range(3):
         row = []
         for j in range(3):
@@ -93,7 +92,6 @@ def create_keyboard(tablero):
             button_text = cell_value if cell_value else " "
             row.append(InlineKeyboardButton(button_text, callback_data=str(i*3+j)))
         keyboard.append(row)
-    #print("teclado creado: " + str(keyboard))
     return keyboard
 
 def modifyTablero(id, numero, partida):
@@ -106,9 +104,7 @@ def modifyTablero(id, numero, partida):
     if numero!="jugar":
         if numero!=None:
             tablero[int(numero)//3][int(numero)%3] = "⚔" if turno == 0 else "⚫"
-            #print("tablero actualizado: " + str(tablero))
         if colas[turno].full():
-            #print("cola de jugador " + str(turno) + " llena, eliminando el elemento más antiguo") 
             toDelete=colas[turno].get()
             tablero[int(toDelete)//3][int(toDelete)%3] = ""
         colas[turno].put(numero)
@@ -121,7 +117,6 @@ def modifyTablero(id, numero, partida):
         
             
         partida.update({"tablero": tablero})
-    #print("sale")
     return partida
 
 def hasAnyoneWon(partida):
@@ -144,51 +139,51 @@ async def tablero(query, context, numero=None):
     
     if numero!="jugar" and partida["tablero"][int(numero)//3][int(numero)%3] != "":
         await query.answer("Esa casilla ya está ocupada!") 
+        print("casilla ocupada: " + str(numero))
         return
     
     print("turno: " + str(turno))
 
     if query.from_user.id != partida["jugadores"][partida["turno"]]: #"jugadores": (0.id, 1.id),"turno": 0,"tablero": [["", "", ""],["", "", ""],["", "", ""]]
         await query.answer("No es tu turno!") 
+        print("no es tu turno: " + str(query.from_user.id) + " vs " + str(partida["jugadores"][partida["turno"]]))
         return
     
     print(partida)
     print("jugadores: " + str(partida["jugadores"])+ ", de patida: " + query.chat_instance)  
     keyboard=[]
 
-
     partida = modifyTablero(query.chat_instance, numero, partida)
-    #print("partida actualizada: " + str(partida))
+    
     keyboard = create_keyboard(partida["tablero"])
-    #print("keyboard generado: " + str(keyboard))
+
     partidas[query.chat_instance] = partida
 
     if hasAnyoneWon(partida):
-        keyboard = [
-        [InlineKeyboardButton("Jugar", callback_data="jugar")],
-        [InlineKeyboardButton("Salir", callback_data="salir")]
-        ]
-
-        reply_markup = InlineKeyboardMarkup(keyboard)   
-
-        await query.message.edit_text(
-            "¡El jugador " + ("1" if turno == 0 else "2") + " ha ganado!" + (", @" + query.from_user.username if query.from_user else "") + "!",
-            reply_markup=reply_markup
-        )
-        del partidas[query.chat_instance]
+        keyboard = await winningSecuence(query, turno)
         return
 
-    #print("partidas actualizado: " + str(partidas))
     reply_markup = InlineKeyboardMarkup(keyboard)
     
-    #await query.message.edit_text(
-    #    "boton " + (numero  if numero else "jugar") + " presionado" + (", @" + query.from_user.username if query.from_user else "") + "!" ,
-    #    reply_markup=reply_markup
-    #)
     print(partida["nombreJugadores"])
     await query.message.edit_text("Turno del jugador "  + (", @" + partida["nombreJugadores"][partida["turno"]]) + "!" ,
         reply_markup=reply_markup
     )
+
+async def winningSecuence(query, turno):
+    keyboard = [
+        [InlineKeyboardButton("Jugar", callback_data="jugar")],
+        [InlineKeyboardButton("Salir", callback_data="salir")]
+        ]
+
+    reply_markup = InlineKeyboardMarkup(keyboard)   
+
+    await query.message.edit_text(
+            "¡El jugador " + ("1" if turno == 0 else "2") + " ha ganado!" + (", @" + query.from_user.username if query.from_user else "") + "!",
+            reply_markup=reply_markup
+        )
+    del partidas[query.chat_instance]
+    return keyboard
 
 async def boton(update, context):
     query = update.callback_query  
