@@ -5,8 +5,9 @@ import os
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, CallbackQueryHandler
 from queue import Queue
+from partida import Partida
+from globales import partidas
 
-partidas={}
 debugMode=False
 
 print('Bot is now starting up...')
@@ -83,108 +84,6 @@ async def menu(update, context):
         reply_markup=reply_markup
     )
 
-def create_keyboard(tablero):
-    keyboard = []
-    for i in range(3):
-        row = []
-        for j in range(3):
-            cell_value = tablero[i][j]
-            button_text = cell_value if cell_value else " "
-            row.append(InlineKeyboardButton(button_text, callback_data=str(i*3+j)))
-        keyboard.append(row)
-    return keyboard
-
-def modifyTablero(id, numero, partida):
-    print("numero recibido: " + str(numero))
-    tablero=partida["tablero"]
-    turno=partida["turno"]
-    print("turno en modifyTablero: " + str(turno))
-    colas=partida["colas"]
-    print("tamaño de cola del jugador " + str(turno) + ": " + str(colas[turno].qsize()))
-    if numero!="jugar":
-        if numero!=None:
-            tablero[int(numero)//3][int(numero)%3] = "⚔" if turno == 0 else "⚫"
-        if colas[turno].full():
-            toDelete=colas[turno].get()
-            tablero[int(toDelete)//3][int(toDelete)%3] = ""
-        colas[turno].put(numero)
-        turno=(turno+1)%2
-        if colas[turno].full():
-            numero=colas[turno].queue[0]
-            tablero[int(numero)//3][int(numero)%3] = "❌" if turno == 0 else "🔴"
-        partida.update({"colas": colas})
-        partida.update({"turno": (partida["turno"]+1)%2})
-        
-            
-        partida.update({"tablero": tablero})
-    return partida
-
-def hasAnyoneWon(partida):
-    tablero=partida["tablero"]
-    for i in range(3):
-        if tablero[i][0] != "" and tablero[i][0] == tablero[i][1] == tablero[i][2]:
-            return True
-        if tablero[0][i] != "" and tablero[0][i] == tablero[1][i] == tablero[2][i]:
-            return True
-    if tablero[0][0] != "" and tablero[0][0] == tablero[1][1] == tablero[2][2]:
-        return True
-    if tablero[0][2] != "" and tablero[0][2] == tablero[1][1] == tablero[2][0]:
-        return True
-    return False
-
-async def tablero(query, context, numero=None):
-    print("numero recibido en tablero: " + str(numero))
-    partida=partidas.get(query.chat_instance)
-    turno=partida["turno"]
-    
-    if numero!="jugar" and partida["tablero"][int(numero)//3][int(numero)%3] != "":
-        await query.answer("Esa casilla ya está ocupada!") 
-        print("casilla ocupada: " + str(numero))
-        return
-    
-    print("turno: " + str(turno))
-
-    if query.from_user.id != partida["jugadores"][partida["turno"]]: #"jugadores": (0.id, 1.id),"turno": 0,"tablero": [["", "", ""],["", "", ""],["", "", ""]]
-        await query.answer("No es tu turno!") 
-        print("no es tu turno: " + str(query.from_user.id) + " vs " + str(partida["jugadores"][partida["turno"]]))
-        return
-    
-    print(partida)
-    print("jugadores: " + str(partida["jugadores"])+ ", de patida: " + query.chat_instance)  
-    keyboard=[]
-
-    partida = modifyTablero(query.chat_instance, numero, partida)
-    
-    keyboard = create_keyboard(partida["tablero"])
-
-    partidas[query.chat_instance] = partida
-
-    if hasAnyoneWon(partida):
-        keyboard = await winningSecuence(query, turno)
-        return
-
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    
-    print(partida["nombreJugadores"])
-    await query.message.edit_text("Turno del jugador "  + (", @" + partida["nombreJugadores"][partida["turno"]]) + "!" ,
-        reply_markup=reply_markup
-    )
-
-async def winningSecuence(query, turno):
-    keyboard = [
-        [InlineKeyboardButton("Jugar", callback_data="jugar")],
-        [InlineKeyboardButton("Salir", callback_data="salir")]
-        ]
-
-    reply_markup = InlineKeyboardMarkup(keyboard)   
-
-    await query.message.edit_text(
-            "¡El jugador " + ("1" if turno == 0 else "2") + " ha ganado!" + (", @" + query.from_user.username if query.from_user else "") + "!",
-            reply_markup=reply_markup
-        )
-    del partidas[query.chat_instance]
-    return keyboard
-
 async def boton(update, context):
     query = update.callback_query  
 
@@ -197,28 +96,17 @@ async def boton(update, context):
         if (query.from_user.id == query.message.reply_to_message.from_user.id) and (not debugMode):
             await query.answer("No puedes jugar contra ti mismo!") 
             return
-        partidas[query.chat_instance] = {
-            "jugadores": (query.from_user.id, query.message.reply_to_message.from_user.id),
-            "nombreJugadores": (query.from_user.username, query.message.reply_to_message.from_user.username),
-            "turno": 0,
-            "tablero": [
-                ["", "", ""],
-                ["", "", ""],
-                ["", "", ""]
-            ],
-            "colas": (Queue(maxsize=3), Queue(maxsize=3)),
-            "ganador": None
-            }
-        print(partidas)
+        partidas[query.chat_instance] = Partida(query)
+        await partidas[query.chat_instance].updateKeyboard(query)
         await query.answer()  
-        await query.edit_message_text("Iniciando juego...") 
-        await tablero(query, context, query.data)
+        
+        #await updateKeyboard(query, partidas[query.chat_instance])
     elif query.data == "salir":
         await query.answer()  
         await query.edit_message_text("Saliendo...")
-    else:
-        await query.answer()  
-        await tablero(query, context, query.data)
+    else: 
+        await partidas[query.chat_instance].keyboardBottonPress(query, context, query.data)
+        await query.answer() 
 
 # Log errors
 async def log_error(update: Update, context: ContextTypes.DEFAULT_TYPE):
