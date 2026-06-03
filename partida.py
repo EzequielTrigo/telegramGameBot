@@ -35,7 +35,7 @@ class Partida:
     async def keyboardBottonPress(self, query, context, numero):
         
         print("turno: " + str(self.turno))
-        if query.from_user.id != self.jugadores[self.turno]: #"jugadores": (0.id, 1.id),"turno": 0,"tablero": [["", "", ""],["", "", ""],["", "", ""]]
+        if self.isNotThePlayersTurn(query): #"jugadores": (0.id, 1.id),"turno": 0,"tablero": [["", "", ""],["", "", ""],["", "", ""]]
             await query.answer("No es tu turno!") 
             print("no es tu turno: " + str(query.from_user.id) + " vs " + str(self.jugadores[self.turno]))
             return
@@ -47,26 +47,35 @@ class Partida:
 
         print(self)
         print("jugadores: " + str(self.jugadores)+ ", de patida: " + query.chat_instance)  
-        keyboard=[]
     
-        if numero!=None:
-            self.tablero.modify_tablero(int(numero), "⚔" if self.turno == 0 else "⚫")
+        self.tablero.modify_tablero(int(numero), "⚔" if self.turno == 0 else "⚫")
 
-        if self.colas[self.turno].full():
-            toDelete=self.colas[self.turno].get()
-            self.tablero.deleteBox(int(toDelete))
+        self.removeOccupiedBoxIfFull()
 
         self.colas[self.turno].put(numero)
+
+        self.markTheLastestPieceFromNextPlayer((self.turno+1)%2)
+
         self.turno=(self.turno+1)%2
-        if self.colas[self.turno].full():
-            numero=self.colas[self.turno].queue[0]
-            self.tablero.modify_tablero(numero, "❌" if self.turno == 0 else "🔴")
-    
+
         if self.tablero.anyoneHasWon():
             await self.winningSequence(query, self.turno)
             return
     
         await self.updateKeyboard(query)
+
+    def isNotThePlayersTurn(self, query):
+        return query.from_user.id != self.jugadores[self.turno]
+
+    def removeOccupiedBoxIfFull(self):
+        if self.colas[self.turno].full():
+            toDelete=self.colas[self.turno].get()
+            self.tablero.deleteBox(int(toDelete))
+
+    def markTheLastestPieceFromNextPlayer(self, next_player):
+        if self.colas[next_player].full():
+            numero=self.colas[next_player].queue[0]
+            self.tablero.modify_tablero(numero, "❌" if next_player == 0 else "🔴")
 
     async def updateKeyboard(self, query):
         keyboard = self.tablero.create_keyboard()
