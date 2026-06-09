@@ -71,7 +71,7 @@ async def process_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print('Bot response:', response)
     await update.message.reply_text(response+". I know who you are, " + update.effective_user.first_name + "!")
 
-async def menu(update, context):
+async def jugar(update, context):
     keyboard = [
         [InlineKeyboardButton("Jugar", callback_data="jugar")],
         [InlineKeyboardButton("Salir", callback_data="salir")]
@@ -127,7 +127,7 @@ if __name__ == '__main__':
     app.add_handler(CommandHandler('help', assist_command))
     app.add_handler(CommandHandler('custom', personalize_command))
 
-    app.add_handler(CommandHandler("menu", menu))
+    app.add_handler(CommandHandler("jugar", jugar))
     app.add_handler(CallbackQueryHandler(boton))
     # Register message handler
     #app.add_handler(MessageHandler(filters.TEXT, process_message))
