@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: telegram-gamebot
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: telegram-gamebot
+  template:
+    metadata:
+      labels:
+        app: telegram-gamebot
+    spec:
+      containers:
+        - name: telegram-gamebot
+          image: telegram-gamebot:latest
+          imagePullPolicy: Never
+          envFrom:
+            - secretRef:
+                name: telegram-gamebot-env

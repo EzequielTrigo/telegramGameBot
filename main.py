@@ -85,7 +85,7 @@ async def jugar(update, context):
     )
 
 async def boton(update, context):
-    query = update.callback_query  
+    query = update.callback_query       
 
     print(query.data)
 
@@ -103,7 +103,7 @@ async def boton(update, context):
         #await updateKeyboard(query, partidas[query.chat_instance])
     elif query.data == "salir":
         await query.answer()  
-        await query.edit_message_text("Saliendo...")
+        await query.edit_message_text("Chau...")
     else: 
         await partidas[query.chat_instance].keyboardBottonPress(query, context, query.data)
         await query.answer() 
@@ -141,4 +141,4 @@ if __name__ == '__main__':
     #print("debug handler added")
     print('Starting polling...')
     # Run the bot
-    app.run_polling(poll_interval=0.5)
+    app.run_polling(poll_interval=0.1)
